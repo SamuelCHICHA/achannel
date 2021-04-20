@@ -1,9 +1,12 @@
 from Bot import Bot
+import json
 
 
 def main():
     bot = Bot()
-    bot.run("ODMzNDE1OTcwNTM3NDcyMDUx.YHyBGw.Ha5hC2fU32u9G3dUc_Pui7IRNnc")
+    with open("config.json", "r") as config_file:
+        loaded_json = json.load(config_file)
+    bot.run(loaded_json["token"])
 
 
 if __name__ == '__main__':
