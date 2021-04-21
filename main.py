@@ -3,10 +3,10 @@ import json
 
 
 def main():
-    bot = Bot()
     with open("config.json", "r") as config_file:
-        loaded_json = json.load(config_file)
-    bot.run(loaded_json["token"])
+        config = json.load(config_file)
+    bot = Bot(config["prefix"])
+    bot.run(config["token"])
 
 
 if __name__ == '__main__':
