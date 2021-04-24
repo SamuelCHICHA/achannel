@@ -1,0 +1,22 @@
+{
+  "prefix" : "$dsg",
+  "commands" :
+          [
+            {
+              "name" : "Aide",
+              "command" : "help",
+              "description" : "Récupérer des informations sur mon fonctionnement."
+            },
+            {
+              "name" : "Création auto channel",
+              "command" : "create auto-channel [nom_du_channel]",
+              "description": "Crée un channel vocal qui en crée un autre lorsque vous le rejoignez et vous place dedans."
+            }
+          ],
+  "supported_activities" : [
+    {
+      "name" : "among us",
+      "file_path" : "voice_channel_names/among-us_voice_channel_names.txt"
+    }
+  ]
+}
