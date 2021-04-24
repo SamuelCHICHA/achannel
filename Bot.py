@@ -33,12 +33,14 @@ class Bot(discord.Client):
 
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState,
                                     after: discord.VoiceState):
-        # Create new voice channel from the main voice channel
         if after.channel:
             # TODO Generalize
             # Getting the matching auto channel
             auto_channel = next(filter(lambda ac: ac.name.lower() == after.channel.name.lower(), self.auto_channels),
                                 None)
+            # If the channel the user is entering bears the same name as the category and
+            # as one of the supported activity for the auto channel feature
+            # create a new voice channel and moves the user on it
             if after.channel.category.name.lower() == after.channel.name.lower() \
                     and auto_channel is not None:
                 try:
@@ -55,7 +57,9 @@ class Bot(discord.Client):
         # Delete the voice channel when there is no one left
         if before.channel:
             auto_channel_names = [ac.name.lower() for ac in self.auto_channels]
-            print(auto_channel_names)
+            # If the channel the user is leaving bears the same name as the category and
+            # as one of the supported activity for the auto channel feature
+            # delete it
             if before.channel.category.name.lower() in auto_channel_names \
                     and before.channel.name.lower() not in auto_channel_names \
                     and len(before.channel.members) == 0:
@@ -78,39 +82,48 @@ class Bot(discord.Client):
                 activities = [ac.name.lower() for ac in self.auto_channels]
                 activity = next(filter(lambda act: act.lower() == options.lower(), activities), None)
                 if activity:
-                    await message.channel.send(f"Creation de l'auto-channel pour {activity}.")
-                    await Bot.create_auto_channel(message.guild, activity)
+                    embed = await Bot.create_auto_channel(message.guild, activity)
+                    await message.channel.send(embed=embed)
                 else:
                     await message.channel.send("Je ne supporte pas cette catégorie.")
             else:
                 await message.channel.send("Je n'ai pas compris votre requête.")
 
     @staticmethod
-    async def create_auto_channel(guild: discord.Guild, name: str) -> None:
+    async def create_auto_channel(guild: discord.Guild, name: str) -> discord.Embed:
+        embed = discord.Embed(title=f"Création d'un autochannel pour {name}", color=discord.Colour.green())
+        # Create the category if it does not exist
         category = next(filter(lambda cat: cat.name.lower() == name.lower(), guild.categories), None)
         if category is None:
             try:
                 # TODO Overwrite
-                await guild.create_category(name.title())
+                category = await guild.create_category(name.title())
+                embed.add_field(name="Création de la catégorie", value="\u200b", inline=False)
             except discord.Forbidden:
                 print("You don't have the rights to create a category.", file=sys.stderr)
             except discord.InvalidArgument:
                 print("The overwrite information is not well formatted.", file=sys.stderr)
             except discord.HTTPException:
                 print("Failed creating the category.", file=sys.stderr)
+        # If the voice channel does not already exist
+        # create it otherwise moves it in the right category if it is misplaced
         channel = next(filter(lambda ch: ch.name.lower() == name.lower(), guild.voice_channels), None)
-        if channel and channel not in category.voice_channels:
-            await channel.move(category=category, beginning=True)
+        if channel:
+            if channel not in category.voice_channels:
+                await channel.move(category=category, beginning=True)
+                embed.add_field(name="Déplacement du channel vocal principal", value="\u200b", inline=False)
         else:
             try:
                 # TODO Overwrite
                 await category.create_voice_channel(name.title())
+                embed.add_field(name="Création du channel vocal principal", value="\u200b", inline=False)
             except discord.Forbidden:
                 print("You don't have the rights to create a voice channel in this category.", file=sys.stderr)
             except discord.InvalidArgument:
                 print("The overwrite information is not well formatted.", file=sys.stderr)
             except discord.HTTPException:
                 print("Failed creating the voice channel.", file=sys.stderr)
+        return embed
 
     async def display_help(self, channel: discord.TextChannel) -> None:
         embed = discord.Embed(title="Informations",
@@ -121,7 +134,8 @@ class Bot(discord.Client):
         # embed.set_thumbnail("")
         embed.add_field(name="Préfixe", value=f"Pour m'appeler, tu peux utiliser \"{self.prefix}\"", inline=False)
         for command in self.commands:
-            embed.add_field(name=f'{command["name"]} : {command["command"]}', value=f'{command["description"]}', inline=False)
+            embed.add_field(name=f'{command["name"]} : {command["command"]}', value=f'{command["description"]}',
+                            inline=False)
         try:
             await channel.send(embed=embed, delete_after=60)
         except discord.Forbidden:
