@@ -7,6 +7,7 @@ class AutoChannel:
         self.voice_channel_names = AutoChannel.get_voice_channel_names(supported_activity["file_path"])
 
     @staticmethod
+    # Get the voice channel names for the auto channel feature from a file
     def get_voice_channel_names(file_path: str) -> list[str]:
         voice_channel_names = []
         if not isinstance(file_path, str):
