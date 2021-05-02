@@ -16,7 +16,7 @@ Some small tools
 
 
 def lower(arg: str):
-    return arg.lower()
+    return arg.lower().strip()
 
 
 """
@@ -31,11 +31,14 @@ async def on_ready():
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
-    try:
+    if len(guild.text_channels) > 0:
         await guild.text_channels[0].send("Salut poufiasse !")
-        await register_guild(guild.id)
-    except AttributeError:
-        print("There are no text channels in this guild", file=sys.stderr)
+    await register_guild(guild.id)
+
+
+@bot.event
+async def on_guild_remove(guild: discord.Guild):
+    await delete_guild(guild.id)
 
 
 @bot.event
@@ -77,7 +80,7 @@ Commands
 @commands.has_permissions(administrator=True)
 async def list_channel_names(ctx, *args: lower):
     if len(args) != 1:
-        ctx.reply("J'ai besoin d'une activité.")
+        await ctx.reply("J'ai besoin d'une activité.")
         ctx.send_help()
     else:
         activity = args[0]
@@ -97,39 +100,46 @@ async def list_channel_names(ctx, *args: lower):
 @commands.has_permissions(administrator=True)
 async def add_channel_names(ctx, *args: lower):
     if len(args) < 2:
-        ctx.reply("Il m'en faut plus")
-        ctx.send_help()
+        await ctx.reply("Il m'en faut plus")
+        await ctx.send_help()
     else:
         activity = args[0]
-        if activity in await get_activities(ctx.guild.id):
+        activities = await get_activities(ctx.guild.id)
+        if activities is not None and activity in activities:
             channel_names = list(args[1:])
             channel_names = [cn.strip() for cn in channel_names]
             await register_voice_channel_names(ctx.guild.id, activity, channel_names)
         else:
-            ctx.reply("Vous devez d'abord enregistrer l'activité.")
+            await ctx.reply("Vous devez d'abord enregistrer l'activité.")
 
 
-@bot.command(name="add-f", description="Register new channel names for an activity via a text file")
-async def add_channel_names_file(ctx):
-    if len(ctx.message.attachments) != 1:
-        ctx.send_help()
+@bot.command(name="add-f", description="Register new channel names for an activity via a text file",
+             require_var_postional=True)
+async def add_channel_names_file(ctx, *args: lower):
+    if len(args) != 1:
+        await ctx.reply("J'ai besoin d'une activité")
     else:
-        file = ctx.message.attachments[0]
-        if "text/plain" in file.content_type:
-            raw_content = await file.read()
-            content = raw_content.decode()
-            lines = content.split("\n")
-            if len(lines) < 2:
-                ctx.reply("Il m'en faut plus.")
-                ctx.send_help()
-            else:
-                activity = lines[0].strip()
-                channel_names = list(lines[1:])
-                channel_names = [cn.strip() for cn in channel_names]
-                await register_voice_channel_names(ctx.guild.id, activity, channel_names)
-        else:
-            ctx.reply("Mauvais format de fichier.")
+        activity = args[0]
+        if len(ctx.message.attachments) != 1:
+            await ctx.reply("J'ai besoin d'un fichier.")
             ctx.send_help()
+        else:
+            file = ctx.message.attachments[0]
+            if "text/plain" in file.content_type:
+                raw_content = await file.read()
+                content = raw_content.decode()
+                lines = content.split("\n")
+                if len(lines) < 1:
+                    ctx.reply("Il m'en faut plus.")
+                    ctx.send_help()
+                else:
+                    channel_names = list(lines)
+                    channel_names = [cn.strip() for cn in channel_names]
+                    channel_names.remove("")
+                    await register_voice_channel_names(ctx.guild.id, activity, channel_names)
+            else:
+                await ctx.reply("Mauvais format de fichier.")
+                ctx.send_help()
 
 
 @bot.command(name='list-ac', description="List all the activities of the guild")
@@ -138,7 +148,7 @@ async def list_activities(ctx):
     embed = discord.Embed(title=f"Liste des activités de {ctx.guild.name}", color=discord.Colour.green())
     value = ""
     activities = await get_activities(ctx.guild.id)
-    if activities:
+    if activities is not None:
         for activity in activities:
             value += f"- {activity.title()}\n"
     else:
@@ -156,13 +166,40 @@ async def create_auto_channel(ctx, *args: lower):
             category = discord.utils.get(ctx.guild.categories, name=arg)
             if category is None:
                 category = await ctx.guild.create_category(arg)
-            channel = discord.utils.get(ctx.guild.voice_channels, name=arg)
+            channel = discord.utils.get(ctx.guild.voice_channels, name=arg.title())
             if channel:
                 if channel not in category.voice_channels:
                     await channel.move(category=category, beginning=True)
             else:
                 # TODO Overwrite
                 await category.create_voice_channel(arg.title())
+
+
+@bot.command(name="delete", description="Delete an activity from the guild.", require_var_positional=True)
+@commands.has_permissions(administrator=True)
+@commands.bot_has_guild_permissions(manage_channels=True, move_members=True)
+async def delete_auto_channel(ctx, *args: lower):
+    if len(args) == 1:
+        activity = args[0]
+        activities = await get_activities(ctx.guild.id)
+        if activities is not None and activity in activities:
+            await delete_activity(ctx.guild.id, activity)
+            vc = discord.utils.get(ctx.guild.voice_channels, name=activity.title())
+            if vc is not None:
+                await vc.delete()
+            else:
+                for vc in ctx.guild.voice_channels:
+                    print(vc.name)
+                print("1")
+            cat = discord.utils.get(ctx.guild.categories, name=activity)
+            if cat is not None:
+                await cat.delete()
+            else:
+                for cat in ctx.guild.categories:
+                    print(cat.name)
+                print("2")
+        else:
+            await ctx.reply("Il n'y a pas d'auto-channel portant ce nom.")
 
 
 def main():

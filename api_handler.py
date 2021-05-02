@@ -20,7 +20,8 @@ async def register_guild(guild_id: int) -> bool:
 
 
 async def get_voice_channel_name(guild_id: int, activity: str) -> Optional[str]:
-    raw_res = requests.get(f"{BASE_URL}/guild/{guild_id}/activity/{activity.lower()}/random-channel-name", timeout=TIMEOUT)
+    raw_res = requests.get(f"{BASE_URL}/guild/{guild_id}/activity/{activity.lower()}/random-channel-name",
+                           timeout=TIMEOUT)
     if raw_res.status_code == 200:
         res = json.loads(raw_res.content)
         if res["status"] == 0:
@@ -85,5 +86,26 @@ async def get_activities(guild_id: int) -> Optional[list[str]]:
         else:
             print(f"Could not retrieve activities for guild {guild_id} from api.", file=sys.stderr)
             print(f"API response: {res}", file=sys.stderr)
+    else:
+        raw_res.raise_for_status()
+
+
+async def delete_guild(guild_id: int) -> bool:
+    data = {"guild_id": guild_id}
+    raw_res = requests.post(f"{BASE_URL}/delete-guild", json=data, timeout=TIMEOUT)
+    if raw_res.status_code == 200:
+        res = json.loads(raw_res.content)
+        return res["status"] == 0
+    else:
+        raw_res.raise_for_status()
+
+
+async def delete_activity(guild_id: int, activity: str) -> bool:
+    data = {"activity": activity}
+    raw_res = requests.post(f"{BASE_URL}/guild/{guild_id}/delete-activity", json=data, timeout=TIMEOUT)
+    if raw_res.status_code == 200:
+        res = json.loads(raw_res.content)
+        print(res)
+        return res["status"] == 0
     else:
         raw_res.raise_for_status()
