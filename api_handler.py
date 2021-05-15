@@ -2,7 +2,6 @@ import json
 import sys
 from typing import Optional
 
-import discord
 import requests
 
 BASE_URL = "http://localhost:3000"
@@ -100,9 +99,9 @@ async def delete_guild(guild_id: int) -> bool:
         raw_res.raise_for_status()
 
 
-async def delete_activity(guild_id: int, activity: str) -> bool:
-    data = {"activity": activity}
-    raw_res = requests.post(f"{BASE_URL}/guild/{guild_id}/delete-activity", json=data, timeout=TIMEOUT)
+async def delete_activities(guild_id: int, activities: list[str]) -> bool:
+    data = {"activities": activities}
+    raw_res = requests.post(f"{BASE_URL}/guild/{guild_id}/delete-activities", json=data, timeout=TIMEOUT)
     if raw_res.status_code == 200:
         res = json.loads(raw_res.content)
         print(res)

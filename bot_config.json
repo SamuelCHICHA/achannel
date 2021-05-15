@@ -1,4 +1,4 @@
 {
-  "prefix": "&&",
-  "description": "Create and handles \"auto-channels\""
+  "prefix": "&",
+  "description": "Create and handles \"auto-channels\"."
 }
