@@ -156,11 +156,11 @@ async def add_channel_names(ctx, activity: lower, *channel_names: lower):
 )
 async def add_channel_names_file(ctx, activity: lower):
     channel_names = []
-    activities = get_activities(ctx.guild.id)
+    activities = await get_activities(ctx.guild.id)
     if activities and activity in activities:
         if len(ctx.message.attachments) != 1:
             await ctx.reply("J'ai besoin d'un fichier.")
-            ctx.send_help()
+            await ctx.send_help()
         else:
             file = ctx.message.attachments[0]
             if "text/plain" in file.content_type:
@@ -168,8 +168,8 @@ async def add_channel_names_file(ctx, activity: lower):
                 content = raw_content.decode()
                 lines = content.split("\n")
                 if len(lines) < 1:
-                    ctx.reply("Il m'en faut plus.")
-                    ctx.send_help()
+                    await ctx.reply("Il m'en faut plus.")
+                    await ctx.send_help()
                 else:
                     lines = list(lines)
                     for cn in lines:
@@ -182,7 +182,7 @@ async def add_channel_names_file(ctx, activity: lower):
                     await ctx.message.add_reaction(CHECK_REACTION)
             else:
                 await ctx.reply("Mauvais format de fichier.")
-                ctx.send_help()
+                await ctx.send_help()
     else:
         logging.info(f"No auto-channel named {activity} [{ctx.guild.name} ({ctx.guild.id})].")
 
