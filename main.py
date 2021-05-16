@@ -144,7 +144,7 @@ async def add_channel_names(ctx, activity: lower, *channel_names: lower):
 @bot.command(
     name="add-f",
     description="This command will take the (mandatory) attached text file and will take each line to "
-                "register new channel names",
+                "register new channel names.",
     brief="Register new channel names for an activity via a text file.",
     usage="[auto-channel]",
     require_var_positional=True
@@ -176,10 +176,11 @@ async def add_channel_names_file(ctx, activity: lower):
                         cn = cn.strip().lower()
                         if cn != "":
                             channel_names.append(cn)
-                    await register_voice_channel_names(ctx.guild.id, activity, channel_names)
-                    logging.info(
-                        f"Registering channel names for {activity} [{ctx.guild.name} ({ctx.guild.id})] (File).")
-                    await ctx.message.add_reaction(CHECK_REACTION)
+                    if await register_voice_channel_names(ctx.guild.id, activity, channel_names):
+                        logging.info(
+                            f"Registering channel names for {activity} [{ctx.guild.name} ({ctx.guild.id})] (File)."
+                        )
+                        await ctx.message.add_reaction(CHECK_REACTION)
             else:
                 await ctx.reply("Mauvais format de fichier.")
                 await ctx.send_help()
