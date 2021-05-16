@@ -2,6 +2,7 @@ import os
 from discord.ext import commands
 from dotenv import load_dotenv
 import discord
+from ErrorHandler import ErrorHandler
 from api_handler import *
 
 with open("bot_config.json", "r") as config_file:
@@ -11,6 +12,15 @@ with open("bot_config.json", "r") as config_file:
 
 CHECK_REACTION = u'\u2705'
 CHANNEL_NAME = "gaming"
+
+logging.basicConfig(
+    filename="bot.log",
+    filemode="w",
+    encoding="utf-8",
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(module)s %(funcName)s: %(message)s",
+    datefmt="%m/%d/%Y %I:%M:%S %p"
+)
 
 """
 Some small tools 
@@ -28,19 +38,22 @@ Events
 
 @bot.event
 async def on_ready():
-    print("You're good to go !")
+    logging.info("I'm up !")
 
 
 @bot.event
 async def on_guild_join(guild):
     await register_guild(guild.id)
+    logging.info(f"Joining guild {guild.id}.")
     if CHANNEL_NAME.lower() not in guild.categories.name:
         await guild.create_category(CHANNEL_NAME)
+        logging.info(f"Creating the \"{CHANNEL_NAME}\" category [{guild.name} ({guild.id})].")
 
 
 @bot.event
 async def on_guild_remove(guild):
     await delete_guild(guild.id)
+    logging.info(f"Leaving guild {guild.name} ({guild.id}).")
 
 
 @bot.event
@@ -55,12 +68,13 @@ async def on_voice_state_update(member, before, after):
         # If the channel the user is entering bears the same name as the category and
         # as one of the supported activity for the auto channel feature
         # create a new voice channel and moves the user on it
-        if activities is not None and after.channel.name.lower() in activities and \
+        if activities and after.channel.name.lower() in activities and \
                 after.channel.category.name.lower() == CHANNEL_NAME.lower():
             voice_channel_name = await get_voice_channel_name(after.channel.guild.id, after.channel.name.lower())
             if voice_channel_name is not None:
                 overwrites = after.channel.overwrites
-                new_channel = await after.channel.category.create_voice_channel(voice_channel_name.title(), overwrites=overwrites)
+                new_channel = await after.channel.category.create_voice_channel(voice_channel_name.title(),
+                                                                                overwrites=overwrites)
                 await member.move_to(new_channel)
             else:
                 await member.move_to(None)
@@ -71,11 +85,10 @@ async def on_voice_state_update(member, before, after):
         # as one of the supported activity for the auto channel feature
         # delete it
         # Delete the voice channel when there is no one left
-        if activities is not None and before.channel.name.lower() not in activities \
+        if activities and before.channel.name.lower() not in activities \
                 and before.channel.category.name.lower() == CHANNEL_NAME.lower() \
                 and len(before.channel.members) == 0:
             await before.channel.delete()
-
 
 """
 Commands
@@ -90,12 +103,11 @@ Commands
 )
 @commands.has_permissions(administrator=True)
 async def list_channel_names(ctx, activity: lower = None):
-    print(activity)
     if activity:
         channel_names = await get_voice_channel_names(ctx.guild.id, activity)
         value = ""
         embed = discord.Embed(title=f"Liste des noms de channel vocaux pour {activity.title()}")
-        if channel_names is not None:
+        if channel_names:
             for channel_name in channel_names:
                 value += f"- {channel_name.title()}\n"
         else:
@@ -119,11 +131,13 @@ async def list_channel_names(ctx, activity: lower = None):
 async def add_channel_names(ctx, activity: lower, *channel_names: lower):
     activities = await get_activities(ctx.guild.id)
     channel_names = list(channel_names)
-    if activities is not None and activity in activities:
+    if activities and activity in activities:
         channel_names = [cn.strip() for cn in channel_names]
         await register_voice_channel_names(ctx.guild.id, activity, channel_names)
+        logging.info(f"Registering channel names for {activity} [{ctx.guild.name} ({ctx.guild.id})].")
         await ctx.message.add_reaction(CHECK_REACTION)
     else:
+        logging.info(f"No auto-channel named {activity} [{ctx.guild.name} ({ctx.guild.id})].")
         await ctx.reply("Vous devez d'abord enregistrer l'activité.")
 
 
@@ -142,29 +156,35 @@ async def add_channel_names(ctx, activity: lower, *channel_names: lower):
 )
 async def add_channel_names_file(ctx, activity: lower):
     channel_names = []
-    if len(ctx.message.attachments) != 1:
-        await ctx.reply("J'ai besoin d'un fichier.")
-        ctx.send_help()
-    else:
-        file = ctx.message.attachments[0]
-        if "text/plain" in file.content_type:
-            raw_content = await file.read()
-            content = raw_content.decode()
-            lines = content.split("\n")
-            if len(lines) < 1:
-                ctx.reply("Il m'en faut plus.")
-                ctx.send_help()
-            else:
-                lines = list(lines)
-                for cn in lines:
-                    cn = cn.strip().lower()
-                    if cn != "":
-                        channel_names.append(cn)
-                await register_voice_channel_names(ctx.guild.id, activity, channel_names)
-                await ctx.message.add_reaction(CHECK_REACTION)
-        else:
-            await ctx.reply("Mauvais format de fichier.")
+    activities = get_activities(ctx.guild.id)
+    if activities and activity in activities:
+        if len(ctx.message.attachments) != 1:
+            await ctx.reply("J'ai besoin d'un fichier.")
             ctx.send_help()
+        else:
+            file = ctx.message.attachments[0]
+            if "text/plain" in file.content_type:
+                raw_content = await file.read()
+                content = raw_content.decode()
+                lines = content.split("\n")
+                if len(lines) < 1:
+                    ctx.reply("Il m'en faut plus.")
+                    ctx.send_help()
+                else:
+                    lines = list(lines)
+                    for cn in lines:
+                        cn = cn.strip().lower()
+                        if cn != "":
+                            channel_names.append(cn)
+                    await register_voice_channel_names(ctx.guild.id, activity, channel_names)
+                    logging.info(
+                        f"Registering channel names for {activity} [{ctx.guild.name} ({ctx.guild.id})] (File).")
+                    await ctx.message.add_reaction(CHECK_REACTION)
+            else:
+                await ctx.reply("Mauvais format de fichier.")
+                ctx.send_help()
+    else:
+        logging.info(f"No auto-channel named {activity} [{ctx.guild.name} ({ctx.guild.id})].")
 
 
 @bot.command(
@@ -176,7 +196,7 @@ async def list_activities(ctx):
     embed = discord.Embed(title=f"Liste des activités de {ctx.guild.name}", color=discord.Colour.green())
     value = ""
     activities = await get_activities(ctx.guild.id)
-    if activities is not None:
+    if activities:
         for activity in activities:
             value += f"- {activity.title()}\n"
     else:
@@ -206,13 +226,17 @@ async def create_auto_channel(ctx, *auto_channels: lower):
         if category is None:
             category = await ctx.guild.create_category(CHANNEL_NAME)
         for auto_channel in auto_channels:
+            logging.info(f"Registering auto-channel {auto_channel} [{ctx.guild.name} ({ctx.guild.id})]")
             role = discord.utils.get(ctx.guild.roles, name=auto_channel.title())
             if role is None:
                 role = await ctx.guild.create_role(name=auto_channel.title())
+                logging.info(f"Creating role {role.name} [{ctx.guild.name} ({ctx.guild.id})]")
             channel = discord.utils.get(ctx.guild.voice_channels, name=auto_channel.title())
             if channel:
                 if channel not in category.voice_channels:
                     await channel.move(category=category, beginning=True)
+                    logging.info(
+                        f"Moving voice channel {channel.name}({channel.id}) [{ctx.guild.name}  ({ctx.guild.id})]")
                 await channel.set_permissions(role,
                                               connect=True,
                                               view_channel=True
@@ -242,6 +266,7 @@ async def create_auto_channel(ctx, *auto_channels: lower):
                     )
                 }
                 await category.create_voice_channel(auto_channel.title(), overwrites=overwrites)
+                logging.info(f"Creating voice channel {auto_channel} [{ctx.guild.name} ({ctx.guild.id})]")
         await ctx.message.add_reaction(CHECK_REACTION)
 
 
@@ -262,23 +287,27 @@ async def create_auto_channel(ctx, *auto_channels: lower):
 async def delete_auto_channels(ctx, *p_activities: lower):
     p_activities = list(p_activities)
     activities = await get_activities(ctx.guild.id)
-    if activities is not None:
+    if activities:
         if await delete_activities(ctx.guild.id, p_activities):
             for activity in p_activities:
                 if activity in activities:
                     vc = discord.utils.get(ctx.guild.voice_channels, name=activity.title())
-                    if vc is not None:
+                    if vc:
                         await vc.delete()
+                        logging.info(f"Deleting role {vc.name} [{ctx.guild.name} ({ctx.guild.id})]")
                     role = discord.utils.get(ctx.guild.roles, name=activity.title())
                     if role:
                         await role.delete()
+                        logging.info(f"Deleting role {role.name} [{ctx.guild.name} ({ctx.guild.id})]")
                     await ctx.message.add_reaction(CHECK_REACTION)
                 else:
+                    logging.info(f"No auto-channel named {activity} [{ctx.guild.name} ({ctx.guild.id})].")
                     await ctx.reply(f"Il n'y a pas d'auto-channel nommé {activity}")
 
 
 def main():
     load_dotenv()
+    bot.add_cog(ErrorHandler(bot))
     bot.run(os.getenv("BOT-TOKEN"))
 
 
