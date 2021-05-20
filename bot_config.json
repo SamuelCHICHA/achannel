@@ -1,4 +1,7 @@
 {
-  "prefix": "&",
-  "description": "Create and handles \"auto-channels\"."
+  "prefix": "$",
+  "description": "Create and handles \"auto-channels\".",
+  "good_reaction": "\u2705",
+  "bad_reaction": "\u274c",
+  "category": "gaming"
 }
