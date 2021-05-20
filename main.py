@@ -8,7 +8,14 @@ from api_handler import *
 with open("bot_config.json", "r") as config_file:
     config = json.load(config_file)
     prefix = config["prefix"]
-    bot = commands.Bot(command_prefix=prefix, description=config["description"])
+    bot = commands.Bot(
+        command_prefix=prefix,
+        description=config["description"],
+        activity=discord.Activity(
+            type=discord.ActivityType.listening,
+            name=f"{prefix}"
+        )
+    )
 
 CHECK_REACTION = u'\u2705'
 CHANNEL_NAME = "gaming"
@@ -18,8 +25,8 @@ logging.basicConfig(
     filemode="w",
     encoding="utf-8",
     level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(module)s %(funcName)s: %(message)s",
-    datefmt="%m/%d/%Y %I:%M:%S %p"
+    format="[%(asctime)s] [%(levelname)s] %(module)s/%(funcName)s: %(message)s",
+    datefmt="%Y/%m/%d %H:%M:%S"
 )
 
 """
@@ -44,8 +51,8 @@ async def on_ready():
 @bot.event
 async def on_guild_join(guild):
     await register_guild(guild.id)
-    logging.info(f"Joining guild {guild.id}.")
-    if CHANNEL_NAME.lower() not in guild.categories.name:
+    logging.info(f"Registering guild {guild.name} ({guild.id}).")
+    if not discord.utils.get(guild.categories.name, name=CHANNEL_NAME):
         await guild.create_category(CHANNEL_NAME)
         logging.info(f"Creating the \"{CHANNEL_NAME}\" category [{guild.name} ({guild.id})].")
 
@@ -90,6 +97,7 @@ async def on_voice_state_update(member, before, after):
                 and len(before.channel.members) == 0:
             await before.channel.delete()
 
+
 """
 Commands
 """
@@ -97,11 +105,10 @@ Commands
 
 @bot.command(
     name="list-cn",
-    brief="List the channel names for an activity",
+    brief="List the channel names for an auto-channel",
     usage="[auto-channel]",
     require_var_positional=True
 )
-@commands.has_permissions(administrator=True)
 async def list_channel_names(ctx, activity: lower = None):
     if activity:
         channel_names = await get_voice_channel_names(ctx.guild.id, activity)
@@ -145,7 +152,7 @@ async def add_channel_names(ctx, activity: lower, *channel_names: lower):
     name="add-f",
     description="This command will take the (mandatory) attached text file and will take each line to "
                 "register new channel names.",
-    brief="Register new channel names for an activity via a text file.",
+    brief="Register new channel names for an auto-channel via a text file.",
     usage="[auto-channel]",
     require_var_positional=True
 )
@@ -190,11 +197,10 @@ async def add_channel_names_file(ctx, activity: lower):
 
 @bot.command(
     name='list-ac',
-    brief="List all the activities of the guild"
+    brief="List all the auto-channels of the guild"
 )
-@commands.has_permissions(administrator=True)
 async def list_activities(ctx):
-    embed = discord.Embed(title=f"Liste des activités de {ctx.guild.name}", color=discord.Colour.green())
+    embed = discord.Embed(title=f"Liste des aut-channels de {ctx.guild.name}", color=discord.Colour.green())
     value = ""
     activities = await get_activities(ctx.guild.id)
     if activities:
@@ -273,7 +279,7 @@ async def create_auto_channel(ctx, *auto_channels: lower):
 
 @bot.command(
     name="delete",
-    description="Delete activities from the guild.",
+    brief="Delete auto-channels from the guild.",
     usage="[auto-channel(s)]",
     require_var_positional=True
 )
@@ -304,6 +310,28 @@ async def delete_auto_channels(ctx, *p_activities: lower):
                 else:
                     logging.info(f"No auto-channel named {activity} [{ctx.guild.name} ({ctx.guild.id})].")
                     await ctx.reply(f"Il n'y a pas d'auto-channel nommé {activity}")
+
+
+@bot.command(
+    name="join",
+    brief="Add a role.",
+    usage="[role]",
+    require_var_positional=True
+)
+@commands.has_guild_permissions(
+    manage_roles=True,
+    add_reactions=True,
+    read_message_history=True
+)
+async def join_role(ctx, role: discord.Role):
+    activities = await get_activities(ctx.guild.id)
+    if role.name.lower() in activities:
+        print(type(ctx.author))
+        await ctx.author.add_roles(role)
+        await ctx.message.add_reaction(CHECK_REACTION)
+        logging.info(f"{ctx.author.name} ({ctx.author.id}) got role {role.name} ({role.id}).")
+    else:
+        await ctx.reply(f"Il n'y a pas d'auto-channel nommé {role.name} sur ce serveur.")
 
 
 def main():
