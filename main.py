@@ -318,7 +318,7 @@ async def delete_auto_channels(ctx, *p_activities: lower):
     usage="[role]",
     require_var_positional=True
 )
-@commands.has_guild_permissions(
+@commands.bot_has_guild_permissions(
     manage_roles=True,
     add_reactions=True,
     read_message_history=True
