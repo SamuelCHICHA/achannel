@@ -1,16 +1,19 @@
-from discord.ext import commands
 import logging
+
+from discord.ext import commands
+
+from Bot import Bot
 
 
 class ErrorHandler(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: Bot):
         self.bot = bot
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx, error):
-        await ctx.message.add_reaction(self.bot.bad_reaction)
+    async def on_command_error(self, ctx: commands.Context, error):
+        await self.bot.send_bad_reaction(ctx)
         if isinstance(error, commands.CommandNotFound):
-            return
+            await ctx.reply("Cette commande n'existe pas.")
         elif isinstance(error, commands.MissingRequiredArgument):
             await ctx.reply("Il manque des paramètres.")
             await ctx.send_help()
@@ -35,4 +38,7 @@ class ErrorHandler(commands.Cog):
                         logging.error(f"Other error: {original_exception}")
             else:
                 logging.error(f"Unexpected error: {error}")
-{}
+
+
+def setup(bot: Bot) -> None:
+    bot.add_cog(ErrorHandler(bot))
