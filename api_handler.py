@@ -162,5 +162,4 @@ async def delete_activities(guild_id: int, activities: list[str]) -> Optional[in
 
 
 def tmp(*args):
-    for arg in args:
-        print(arg)
+    logging.info(f"{list(args)}")
