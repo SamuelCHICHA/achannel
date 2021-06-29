@@ -30,54 +30,53 @@ class AutoChannelCategory(commands.Cog, name="AutoChannel", description="Command
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
     async def create_auto_channel(self, ctx: commands.Context, *auto_channels: StringConverter.convert):
-        auto_channels = list(auto_channels)
-        if await api_handler.register_activities(ctx.guild.id, auto_channels):
-            category = discord.utils.get(ctx.guild.categories, name=self.bot.mother_category)
-            if category is None:
-                category = await ctx.guild.create_category(self.bot.mother_category)
-            for auto_channel in auto_channels:
-                logging.info(f"Registering auto-channel {auto_channel} [{ctx.guild.name} ({ctx.guild.id})]")
-                role = discord.utils.get(ctx.guild.roles, name=auto_channel.title())
-                if role is None:
-                    role = await ctx.guild.create_role(name=auto_channel.title())
-                    logging.info(f"Creating role {role.name} [{ctx.guild.name} ({ctx.guild.id})]")
-                channel = discord.utils.get(ctx.guild.voice_channels, name=auto_channel.title())
-                if channel:
-                    if channel not in category.voice_channels:
-                        await channel.move(category=category, beginning=True)
-                        logging.info(
-                            f"Moving voice channel {channel.name}({channel.id}) [{ctx.guild.name}  ({ctx.guild.id})]")
-                    await channel.set_permissions(role,
-                                                  connect=True,
-                                                  view_channel=True
-                                                  )
-                    await channel.set_permissions(ctx.guild.default_role,
-                                                  view_channel=False
-                                                  )
-                    await channel.set_permissions(ctx.me,
-                                                  connect=True,
-                                                  view_channel=True,
-                                                  manage_channels=True
-                                                  )
-                else:
-                    overwrites = {
-                        ctx.guild.default_role: discord.PermissionOverwrite(
-                            connect=False,
-                            view_channel=False
-                        ),
-                        role: discord.PermissionOverwrite(
-                            connect=True,
-                            view_channel=True
-                        ),
-                        ctx.me: discord.PermissionOverwrite(
-                            connect=True,
-                            view_channel=True,
-                            manage_channels=True
-                        )
-                    }
-                    await category.create_voice_channel(auto_channel.title(), overwrites=overwrites)
-                    logging.info(f"Creating voice channel {auto_channel} [{ctx.guild.name} ({ctx.guild.id})]")
-            await self.bot.send_good_reaction(ctx)
+        pre_existing_auto_channels = await api_handler.get_activities(ctx.guild.id)
+        if pre_existing_auto_channels is not None:
+            auto_channels = list(auto_channels)
+            if await api_handler.register_activities(ctx.guild.id, auto_channels):
+                logging.info(f"Registering auto-channels {auto_channels} [{ctx.guild.name} ({ctx.guild.id})]")
+                category = discord.utils.get(ctx.guild.categories, name=self.bot.mother_category)
+                if category is None:
+                    category = await ctx.guild.create_category(self.bot.mother_category)
+                for auto_channel in auto_channels:
+                    if auto_channel not in pre_existing_auto_channels:
+                        role = discord.utils.get(ctx.guild.roles, name=auto_channel.title())
+                        if role is None:
+                            role = await ctx.guild.create_role(name=auto_channel.title())
+                        channel = discord.utils.get(ctx.guild.voice_channels, name=auto_channel.title())
+                        if channel:
+                            if channel not in category.voice_channels:
+                                await channel.move(category=category, beginning=True)
+                            await channel.set_permissions(role,
+                                                          connect=True,
+                                                          view_channel=True
+                                                          )
+                            await channel.set_permissions(ctx.guild.default_role,
+                                                          view_channel=False
+                                                          )
+                            await channel.set_permissions(ctx.me,
+                                                          connect=True,
+                                                          view_channel=True,
+                                                          manage_channels=True
+                                                          )
+                        else:
+                            overwrites = {
+                                ctx.guild.default_role: discord.PermissionOverwrite(
+                                    connect=False,
+                                    view_channel=False
+                                ),
+                                role: discord.PermissionOverwrite(
+                                    connect=True,
+                                    view_channel=True
+                                ),
+                                ctx.me: discord.PermissionOverwrite(
+                                    connect=True,
+                                    view_channel=True,
+                                    manage_channels=True
+                                )
+                            }
+                            await category.create_voice_channel(auto_channel.title(), overwrites=overwrites)
+                    await self.bot.send_good_reaction(ctx)
 
     @commands.command(
         name="delete",
@@ -97,24 +96,26 @@ class AutoChannelCategory(commands.Cog, name="AutoChannel", description="Command
     )
     @commands.guild_only()
     async def delete_auto_channels(self, ctx: commands.Context, *p_activities: StringConverter.convert):
-        p_activities = list(p_activities)
+        acs = []
         activities = await api_handler.get_activities(ctx.guild.id)
-        if activities:
-            if await api_handler.delete_activities(ctx.guild.id, p_activities):
-                for activity in p_activities:
-                    if activity in activities:
-                        vc = discord.utils.get(ctx.guild.voice_channels, name=activity.title())
-                        if vc:
-                            await vc.delete()
-                            logging.info(f"Deleting voice channel {vc.name} [{ctx.guild.name} ({ctx.guild.id})]")
-                        role = discord.utils.get(ctx.guild.roles, name=activity.title())
-                        if role:
-                            await role.delete()
-                            logging.info(f"Deleting role {role.name} [{ctx.guild.name} ({ctx.guild.id})]")
-                        await self.bot.send_good_reaction(ctx)
-                    else:
-                        logging.info(f"No auto-channel named {activity} [{ctx.guild.name} ({ctx.guild.id})].")
-                        await ctx.reply(f"Il n'y a pas d'auto-channel nommé {activity}")
+        if activities is not None:
+            # TODO check what is sent first :)
+            p_activities = list(p_activities)
+            for act in p_activities:
+                if act in activities:
+                    acs.append(act)
+                else:
+                    await ctx.reply(f"Il n'y a pas d'auto-channel nommé {act}")
+            deleted = await api_handler.delete_activities(ctx.guild.id, acs)
+            for activity in acs:
+                vc = discord.utils.get(ctx.guild.voice_channels, name=activity.title())
+                if vc:
+                    await vc.delete()
+                role = discord.utils.get(ctx.guild.roles, name=activity.title())
+                if role:
+                    await role.delete()
+            await self.bot.send_good_reaction(ctx)
+            await ctx.reply(f"{deleted} auto-channels out of {len(acs)} were deleted.")
 
     @commands.command(
         name='list-ac',
@@ -137,7 +138,7 @@ class AutoChannelCategory(commands.Cog, name="AutoChannel", description="Command
 
     @commands.command(
         name="join",
-        brief="Add a role.",
+        brief="Add yourself a role.",
         description="This command allow you to gain access to the auto-channels associated to these roles. e.g. join "
                     "@Among Us @Fall Guys",
         usage="[role(s)]",
@@ -151,7 +152,7 @@ class AutoChannelCategory(commands.Cog, name="AutoChannel", description="Command
     @commands.guild_only()
     async def join_role(self, ctx: commands.Context, *roles: discord.Role):
         activities = await api_handler.get_activities(ctx.guild.id)
-        if activities:
+        if activities is not None:
             for role in roles:
                 if role.name.lower() in activities:
                     await ctx.author.add_roles(role)
@@ -159,6 +160,21 @@ class AutoChannelCategory(commands.Cog, name="AutoChannel", description="Command
                     logging.info(f"{ctx.author.name} ({ctx.author.id}) got role {role.name} ({role.id}).")
                 else:
                     await ctx.reply(f"Il n'y a pas d'auto-channel nommé {role.name} sur ce serveur.")
+
+    @commands.Cog.listener()
+    @commands.bot_has_guild_permissions(
+        manage_channels=True,
+        manage_roles=True
+    )
+    async def on_guild_channel_delete(self, channel: discord.VoiceChannel):
+        if isinstance(channel, discord.VoiceChannel) and channel.category.name == self.bot.mother_category:
+            activities = await api_handler.get_activities(channel.guild.id)
+            if activities is not None:
+                if channel.name.lower() in activities:
+                    await api_handler.delete_activities(channel.guild.id, [channel.name.lower()])
+                    matching_role = discord.utils.get(channel.guild.roles, name=channel.name.title())
+                    if matching_role:
+                        await matching_role.delete()
 
 
 def setup(bot: Bot) -> None:

@@ -19,7 +19,7 @@ class Listener(commands.Cog):
     async def on_guild_join(self, guild: discord.Guild):
         await api_handler.register_guild(guild.id)
         logging.info(f"Registering guild {guild.name} ({guild.id}).")
-        if not discord.utils.get(guild.categories.name, name=self.bot.mother_category):
+        if not discord.utils.get(guild.categories, name=self.bot.mother_category):
             await guild.create_category(self.bot.mother_category)
             logging.info(f"Creating the \"{self.bot.mother_category}\" category [{guild.name} ({guild.id})].")
         if guild.system_channel:

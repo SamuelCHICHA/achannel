@@ -14,17 +14,20 @@ class ErrorHandler(commands.Cog):
         await self.bot.send_bad_reaction(ctx)
         if isinstance(error, commands.CommandNotFound):
             await ctx.reply("Cette commande n'existe pas.")
+            await ctx.send_help()
         elif isinstance(error, commands.MissingRequiredArgument):
             await ctx.reply("Il manque des paramètres.")
-            await ctx.send_help()
+            await ctx.send_help(ctx.command)
         elif isinstance(error, commands.TooManyArguments):
             await ctx.reply("Trop de paramètres.")
+            await ctx.send_help(ctx.command)
         elif isinstance(error, commands.BotMissingPermissions):
             logging.error(f"Bot doesn't have the right: {error.missing_perms} [{ctx.guild.name} ({ctx.guild.id})]")
         elif isinstance(error, commands.MissingPermissions):
             await ctx.reply(f"Vous n'avez pas la permission de faire ça. {error.missing_perms}")
         elif isinstance(error, commands.BadArgument):
             await ctx.reply(f"Le(s) paramètre(s) sont incorrectes.")
+            await ctx.send_help(ctx.command)
         else:
             if isinstance(error, commands.CommandInvokeError):
                 original_exception = error.original
