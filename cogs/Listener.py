@@ -23,7 +23,7 @@ class Listener(commands.Cog):
             await guild.create_category(self.bot.mother_category)
             logging.info(f"Creating the \"{self.bot.mother_category}\" category [{guild.name} ({guild.id})].")
         if guild.system_channel:
-            guild.system_channel.send("Salut !")
+            await guild.system_channel.send("Salut !")
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
