@@ -76,6 +76,9 @@ class AutoChannelCategory(commands.Cog, name="AutoChannel", description="Command
                                 )
                             }
                             await category.create_voice_channel(auto_channel.title(), overwrites=overwrites)
+                    await ctx.reply(f"@everyone New channel for \"{auto_channel.title()}\" !"
+                                    f" Type {self.bot.command_prefix}join \"{auto_channel.title()}\""
+                                    f" to access associated voice channels.")
                     await self.bot.send_good_reaction(ctx)
 
     @commands.command(

@@ -21,7 +21,8 @@ class Bot(commands.Bot):
             activity=discord.Activity(
                 type=discord.ActivityType.listening,
                 name=f"{prefix}"
-            )
+            ),
+            allowed_mentions=discord.AllowedMentions(everyone=True)
         )
         self.mother_category = mother_category
         self.good_reaction = good_reaction
