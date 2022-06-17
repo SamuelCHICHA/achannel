@@ -6,6 +6,10 @@
 The point is to create an **auto-channel** that will create a sub voice channel upon connection and move the user on it.
 The name of the sub voice channel is chosen **randomly** among the list the user gave for this auto-channel (see **add** or **add-f** command).
 
+## Installation
+
+Run `pipenv install` then run `pipenv shell` and finally run `python main.py`.
+
 ## Commands
 
 * `help ["command"]`
